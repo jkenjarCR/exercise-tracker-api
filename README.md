@@ -1,2 +1,3 @@
-# exercise-tracker-api
-Description: A Node.js and Express-based API for tracking exercises, including user creation, logging workouts, and querying data. Built as part of FreeCodeCamp's Back-End Development and APIs curriculum.
+# Exercise Tracker
+
+This is the boilerplate for the Exercise Tracker project. Instructions for building your project can be found at https://www.freecodecamp.org/learn/apis-and-microservices/apis-and-microservices-projects/exercise-tracker
