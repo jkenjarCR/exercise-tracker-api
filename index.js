@@ -2,10 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const bodyParser = require("body-parser");
-const dns = require("dns");
-const shortid = require("shortid");
-require("dotenv").config();
 const mongoose = require("mongoose");
+require("dotenv").config();
 
 connect_to_db();
 
@@ -31,14 +29,11 @@ const log_schema = new Schema({
 
 const ExerciseInfo = mongoose.model("exercise_info", exercise_info_schema);
 const User = mongoose.model("user", user_schema);
-const Log = mongoose.model("user", log_schema);
+const Log = mongoose.model("log", log_schema);
 
 app.use(cors());
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/views/index.html");
-});
 
 function connect_to_db() {
   mongoose.connect(process.env.MONGO_URI, {
@@ -46,6 +41,27 @@ function connect_to_db() {
     useUnifiedTopology: true,
   });
 }
+
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/views/index.html");
+});
+
+app.post("/api/users", (req, res) => {
+  var { username } = req.body;
+  var user_model = new User({
+    username
+  });
+  user_model.save(function(err, data) {
+    if(err) res.json(err);
+    else res.json(data);
+  });
+});
+
+app.get("/api/users", (req, res) => {
+  User.find({}, function(err, data) {
+    res.json(data);
+  });
+});
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log("Your app is listening on port " + listener.address().port);
