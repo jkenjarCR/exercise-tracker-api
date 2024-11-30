@@ -76,9 +76,10 @@ app.post("/api/users/:_id/exercises", function(req, res) {
         date: req.body.date
       });
       exercise_model.save(function(err, data) {
-        ExerciseInfo.find({username: user.username}, function(err, exercise) {
-          res.json({ ...user, ...exercise });
-        });
+        user.description = data.description;
+        user.duration = data.duration;
+        user.date = data.date
+        res.send(user);
       });
     }
   });
