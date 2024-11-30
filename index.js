@@ -12,7 +12,7 @@ const exercise_info_schema = new Schema({
   username: { type: String, required: true },
   description: { type: String, required: true },
   duration: { type: Number, required: true },
-  date: { type: Date, required: true },
+  date: { type: Date, required: true, default: Date.now },
 });
 const user_schema = new Schema({
   username: { type: String, required: true },
@@ -68,18 +68,16 @@ app.get("/api/users", (req, res) => {
 
 app.post("/api/users/:_id/exercises", function(req, res) {
   User.findById(req.params._id, function(err, user) {
-    if(user && user._id && user._id == req.params._id) {
-      var exercise_model = new ExerciseInfo({
-        username: user.username,
-        description: req.body.description,
-        duration: req.body.duration,
-        date: req.body.date
-      });
-      exercise_model.save(function(err, data) {
-        var u = { _id: user._id, username: user.username, description: req.body.description, duration: req.body.duration, date: req.body.date }
-        res.json(u);
-      });
-    }
+    var exercise_model = new ExerciseInfo({
+      username: user.username,
+      description: req.body.description,
+      duration: req.body.duration,
+      date: req.body.data ? new Date(req.body.date) : new Date()
+    });
+    exercise_model.save(function(err, exercise) {
+      var u = { _id: user._id, username: user.username, description: exercise.description, duration: exercise.duration, date: new Date(exercise.date).toDateString() }
+      res.json(u);
+    });
   });
 });
 
