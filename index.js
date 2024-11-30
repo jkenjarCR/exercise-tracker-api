@@ -31,6 +31,8 @@ const ExerciseInfo = mongoose.model("exercise_info", exercise_info_schema);
 const User = mongoose.model("user", user_schema);
 const Log = mongoose.model("log", log_schema);
 
+var current_user = {};
+
 app.use(cors());
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -59,7 +61,24 @@ app.post("/api/users", (req, res) => {
 
 app.get("/api/users", (req, res) => {
   User.find({}, function(err, data) {
+    current_user = data;
     res.json(data);
+  });
+});
+
+app.post("/api/users/:_id/exercises", function(req, res) {
+  User.findById(req.params._id, function(err, user) {
+    if(user && user._id && user._id == req.params._id) {
+      var exercise_model = new ExerciseInfo({
+        username: user.username,
+        description: req.body.description,
+        duration: req.body.duration,
+        date: req.body.date
+      });
+      exercise_model.save(function(err, data) {
+        res.json(data);
+      });
+    }
   });
 });
 
