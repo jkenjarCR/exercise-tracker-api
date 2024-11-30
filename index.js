@@ -76,7 +76,9 @@ app.post("/api/users/:_id/exercises", function(req, res) {
         date: req.body.date
       });
       exercise_model.save(function(err, data) {
-        res.json(data);
+        ExerciseInfo.find({username: user.username}, function(err, data) {
+          res.json(data);
+        });
       });
     }
   });
