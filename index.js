@@ -84,53 +84,42 @@ app.post("/api/users/:_id/exercises", function (req, res) {
   });
 });
 
-app.get("/api/users/:_id/logs", (req, res) => {
-  let fromParam = req.query.from;
-  let toParam = req.query.to;
-  let limitParam = req.query.limit;
-  let userId = req.params._id;
+app.get("/api/users/:_id/logs", async (req, res) => {
+  var userId = req.params._id;
+  var { from, to, limit } = req.query;
+  var filter = { userId };
+  var date_filter = {};
 
-  // If limit param exists set it to an integer
-  limitParam = limitParam ? parseInt(limitParam) : limitParam;
+  if (from || to) {
+    if (from) date_filter["$gte"] = new Date(from);
+    if (to) date_filter["$lte"] = new Date(to);
+    filter.date = date_filter;
+  }
 
-  User.findById(userId, (err, userFound) => {
-    if (err) return console.log(err);
-    console.log(userFound);
+  var user = await User.findById(userId);
 
-    let queryObj = {
-      userId: userId,
-    };
-    // If we have a date add date params to the query
-    if (fromParam || toParam) {
-      queryObj.date = {};
-      if (fromParam) {
-        queryObj.date["$gte"] = fromParam;
-      }
-      if (toParam) {
-        queryObj.date["$lte"] = toParam;
-      }
-    }
+  if (user && user._id == userId) {
+    var exercises = await ExerciseInfo.find(filter).limit(
+      parseInt(limit) ? parseInt(limit) : 500
+    );
 
-    ExerciseInfo.find(queryObj)
-      .limit(limitParam)
-      .exec((err, exercises) => {
-        if (err) return console.log(err);
+    exercises = exercises.map((x) => {
+      return {
+        description: x.description,
+        duration: x.duration,
+        date: new Date(x.date).toDateString(),
+      };
+    });
 
-        let resObj = { _id: userFound._id, username: userFound.username };
-
-        exercises = exercises.map((x) => {
-          return {
-            description: x.description,
-            duration: x.duration,
-            date: new Date(x.date).toDateString(),
-          };
-        });
-        resObj.log = exercises;
-        resObj.count = exercises.length;
-
-        res.json(resObj);
-      });
-  });
+    res.json({
+      _id: userId,
+      username: user.username,
+      count: exercises.length || 0,
+      log: exercises,
+    });
+  } else {
+    res.json({ error: "User not found!" });
+  }
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
