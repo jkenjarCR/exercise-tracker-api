@@ -12,7 +12,7 @@ const exercise_info_schema = new Schema({
   username: { type: String, required: true },
   description: { type: String, required: true },
   duration: { type: Number, required: true },
-  date: { type: Date, required: true, default: Date.now },
+  date: { type: Date, required: false, default: Date.now },
 });
 const user_schema = new Schema({
   username: { type: String, required: true },
@@ -51,33 +51,103 @@ app.get("/", (req, res) => {
 app.post("/api/users", (req, res) => {
   var { username } = req.body;
   var user_model = new User({
-    username
+    username,
   });
-  user_model.save(function(err, data) {
-    if(err) res.json(err);
+  user_model.save(function (err, data) {
+    if (err) res.json(err);
     else res.json(data);
   });
 });
 
 app.get("/api/users", (req, res) => {
-  User.find({}, function(err, data) {
+  User.find({}, function (err, data) {
     current_user = data;
     res.json(data);
   });
 });
 
-app.post("/api/users/:_id/exercises", function(req, res) {
-  User.findById(req.params._id, function(err, user) {
+app.post("/api/users/:_id/exercises", function (req, res) {
+  User.findById(req.params._id, function (err, user) {
+    var { date } = req.body;
+
+    if (!date) {
+      date = new Date(Date.now()).toDateString();
+    } else {
+      const parts = date.split("-");
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1;
+      const day = parseInt(parts[2]);
+
+      const utcDate = new Date(Date.UTC(year, month, day));
+      date = new Date(
+        utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
+      ).toDateString();
+    }
+
     var exercise_model = new ExerciseInfo({
       username: user.username,
       description: req.body.description,
-      duration: req.body.duration,
-      date: req.body.data ? new Date(req.body.date) : new Date()
+      duration: Number(req.body.duration),
+      date: date,
+      _id: user._id,
     });
-    exercise_model.save(function(err, exercise) {
-      var u = { _id: user._id, username: user.username, description: exercise.description, duration: exercise.duration, date: new Date(exercise.date).toDateString() }
-      res.json(u);
+
+    exercise_model.save(function (err, exercise) {
+      if (!err) {
+        var u = {
+          _id: user._id,
+          username: user.username,
+          description: exercise.description,
+          duration: Number(exercise.duration),
+          date: exercise.date.toDateString(),
+        };
+        res.json(u);
+      } else {
+        res.json({ error: "Exercise failed to save." });
+      }
     });
+  });
+});
+
+app.get("/api/users/:_id/logs", function (req, res) {
+  User.findById(req.params._id, function (err, user) {
+    if (!err && user._id) {
+      ExerciseInfo.find({ username: user.username }, function (err, exercises) {
+        if (!err) {
+          var exercises = JSON.parse(JSON.stringify(exercises));
+          for (var i = 0; i < exercises.length; i++) {
+            var date = exercises[i].date;
+            if (!date) {
+              date = new Date(Date.now()).toDateString();
+            } else {
+              const parts = date.split("-");
+              const year = parseInt(parts[0]);
+              const month = parseInt(parts[1]) - 1;
+              const day = parseInt(parts[2]);
+
+              const utcDate = new Date(Date.UTC(year, month, day));
+              date = new Date(
+                utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
+              ).toDateString();
+            }
+            exercises[i].date = date;
+          }
+          console.error(exercises);
+          var log = {
+            _id: user._id,
+            username: user.username,
+            count: exercises.length,
+            log: exercises,
+          };
+          res.json(log);
+        } else {
+          console.error("log not found");
+          res.json({ error: "User log not found." });
+        }
+      });
+    } else {
+      res.json({ error: "User not found." });
+    }
   });
 });
 
