@@ -113,7 +113,7 @@ app.get("/api/users/:_id/logs", function (req, res) {
   User.findById(req.params._id,  async function (err, user) {
     if (!err && user._id) {
       var { from, to, limit } = req.query;
-      limit = limit ? limit : 0;
+      var l = +limit ? +limit : 500000000;
       var date_obj = {};
       if (from) date_obj["$gte"] = new Date(from);
       if (to) date_obj["$lte"] = new Date(to);
@@ -121,7 +121,9 @@ app.get("/api/users/:_id/logs", function (req, res) {
       if (from || to) {
         filter.date = date_obj;
       }
-      var exercises = await ExerciseInfo.find(filter).limit(limit);
+      var exercises = await ExerciseInfo.find(filter).limit(l);
+
+      console.error(exercises.length)
 
       if (exercises && exercises.length) {
           var exercises = JSON.parse(JSON.stringify(exercises));
@@ -142,7 +144,6 @@ app.get("/api/users/:_id/logs", function (req, res) {
             }
             exercises[i].date = date;
           }
-          console.error(exercises);
           var log = {
             _id: user._id,
             username: user.username,
