@@ -9,7 +9,7 @@ connect_to_db();
 
 const Schema = mongoose.Schema;
 const exercise_info_schema = new Schema({
-  username: { type: String, required: true },
+  userId: { type: String, required: true },
   description: { type: String, required: true },
   duration: { type: Number, required: true },
   date: { type: Date, required: false, default: Date.now },
@@ -17,19 +17,9 @@ const exercise_info_schema = new Schema({
 const user_schema = new Schema({
   username: { type: String, required: true },
 });
-const log_schema = new Schema({
-  username: { type: String, required: true },
-  count: { type: Number, required: true },
-  log: {
-    description: { type: String, required: true },
-    duration: { type: Number, required: true },
-    date: { type: Date, required: true },
-  },
-});
 
 const ExerciseInfo = mongoose.model("exercise_info", exercise_info_schema);
 const User = mongoose.model("user", user_schema);
-const Log = mongoose.model("log", log_schema);
 
 var current_user = {};
 
@@ -67,41 +57,26 @@ app.get("/api/users", (req, res) => {
 });
 
 app.post("/api/users/:_id/exercises", function (req, res) {
-  User.findById(req.params._id, function (err, user) {
-    var { date } = req.body;
+  let userId = req.params._id;
 
-    if (!date) {
-      date = new Date(Date.now()).toDateString();
-    } else {
-      const parts = date.split("-");
-      const year = parseInt(parts[0]);
-      const month = parseInt(parts[1]) - 1;
-      const day = parseInt(parts[2]);
+  var exercise_object = {
+    date: req.body.date,
+    userId: userId,
+    description: req.body.description,
+    duration: req.body.duration,
+  };
 
-      const utcDate = new Date(Date.UTC(year, month, day));
-      date = new Date(
-        utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
-      ).toDateString();
-    }
-
-    var exercise_model = new ExerciseInfo({
-      username: user.username,
-      description: req.body.description,
-      duration: Number(req.body.duration),
-      date: date,
-      _id: user._id,
-    });
-
+  var exercise_model = new ExerciseInfo(exercise_object);
+  User.findById(userId, function (err, user) {
     exercise_model.save(function (err, exercise) {
       if (!err) {
-        var u = {
+        res.json({
           _id: user._id,
           username: user.username,
           description: exercise.description,
-          duration: Number(exercise.duration),
-          date: exercise.date.toDateString(),
-        };
-        res.json(u);
+          duration: exercise.duration,
+          date: new Date(exercise.date).toDateString(),
+        });
       } else {
         res.json({ error: "Exercise failed to save." });
       }
@@ -109,55 +84,52 @@ app.post("/api/users/:_id/exercises", function (req, res) {
   });
 });
 
-app.get("/api/users/:_id/logs", function (req, res) {
-  User.findById(req.params._id,  async function (err, user) {
-    if (!err && user._id) {
-      var { from, to, limit } = req.query;
-      var l = +limit ? +limit : 500000000;
-      var date_obj = {};
-      if (from) date_obj["$gte"] = new Date(from);
-      if (to) date_obj["$lte"] = new Date(to);
-      let filter = { username: user.username };
-      if (from || to) {
-        filter.date = date_obj;
+app.get("/api/users/:_id/logs", (req, res) => {
+  let fromParam = req.query.from;
+  let toParam = req.query.to;
+  let limitParam = req.query.limit;
+  let userId = req.params._id;
+
+  // If limit param exists set it to an integer
+  limitParam = limitParam ? parseInt(limitParam) : limitParam;
+
+  User.findById(userId, (err, userFound) => {
+    if (err) return console.log(err);
+    console.log(userFound);
+
+    let queryObj = {
+      userId: userId,
+    };
+    // If we have a date add date params to the query
+    if (fromParam || toParam) {
+      queryObj.date = {};
+      if (fromParam) {
+        queryObj.date["$gte"] = fromParam;
       }
-      var exercises = await ExerciseInfo.find(filter).limit(l);
-
-      console.error(exercises.length)
-
-      if (exercises && exercises.length) {
-          var exercises = JSON.parse(JSON.stringify(exercises));
-          for (var i = 0; i < exercises.length; i++) {
-            var date = exercises[i].date;
-            if (!date) {
-              date = new Date(Date.now()).toDateString();
-            } else {
-              const parts = date.split("-");
-              const year = parseInt(parts[0]);
-              const month = parseInt(parts[1]) - 1;
-              const day = parseInt(parts[2]);
-
-              const utcDate = new Date(Date.UTC(year, month, day));
-              date = new Date(
-                utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
-              ).toDateString();
-            }
-            exercises[i].date = date;
-          }
-          var log = {
-            _id: user._id,
-            username: user.username,
-            count: exercises.length,
-            log: exercises,
-          };
-          res.json(log);
-        } else {
-          console.error("log not found");
-          res.json({ error: "User log not found." });
-        }
-    } else {
-      res.json({ error: "User not found." });
+      if (toParam) {
+        queryObj.date["$lte"] = toParam;
+      }
     }
+
+    ExerciseInfo.find(queryObj)
+      .limit(limitParam)
+      .exec((err, exercises) => {
+        if (err) return console.log(err);
+
+        let resObj = { _id: userFound._id, username: userFound.username };
+
+        exercises = exercises.map((x) => {
+          return {
+            description: x.description,
+            duration: x.duration,
+            date: new Date(x.date).toDateString(),
+          };
+        });
+        resObj.log = exercises;
+        resObj.count = exercises.length;
+
+        res.json(resObj);
+      });
   });
 });
 
