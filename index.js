@@ -110,10 +110,20 @@ app.post("/api/users/:_id/exercises", function (req, res) {
 });
 
 app.get("/api/users/:_id/logs", function (req, res) {
-  User.findById(req.params._id, function (err, user) {
+  User.findById(req.params._id,  async function (err, user) {
     if (!err && user._id) {
-      ExerciseInfo.find({ username: user.username }, function (err, exercises) {
-        if (!err) {
+      var { from, to, limit } = req.query;
+      limit = limit ? limit : 0;
+      var date_obj = {};
+      if (from) date_obj["$gte"] = new Date(from);
+      if (to) date_obj["$lte"] = new Date(to);
+      let filter = { username: user.username };
+      if (from || to) {
+        filter.date = date_obj;
+      }
+      var exercises = await ExerciseInfo.find(filter).limit(limit);
+
+      if (exercises && exercises.length) {
           var exercises = JSON.parse(JSON.stringify(exercises));
           for (var i = 0; i < exercises.length; i++) {
             var date = exercises[i].date;
@@ -144,7 +154,6 @@ app.get("/api/users/:_id/logs", function (req, res) {
           console.error("log not found");
           res.json({ error: "User log not found." });
         }
-      });
     } else {
       res.json({ error: "User not found." });
     }
