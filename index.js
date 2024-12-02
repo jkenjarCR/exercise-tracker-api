@@ -5,8 +5,14 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
+// MongoDB database config via Mongoose
+function connect_to_db() {
+  mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+}
 connect_to_db();
-
 const Schema = mongoose.Schema;
 const exercise_info_schema = new Schema({
   userId: { type: String, required: true },
@@ -17,22 +23,15 @@ const exercise_info_schema = new Schema({
 const user_schema = new Schema({
   username: { type: String, required: true },
 });
-
 const ExerciseInfo = mongoose.model("exercise_info", exercise_info_schema);
 const User = mongoose.model("user", user_schema);
+// end MongoDB database config via Mongoose
 
-var current_user = {};
-
+// middleware config
 app.use(cors());
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
-
-function connect_to_db() {
-  mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-}
+// end middleware config
 
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/views/index.html");
@@ -43,6 +42,7 @@ app.post("/api/users", (req, res) => {
   var user_model = new User({
     username,
   });
+  
   user_model.save(function (err, data) {
     if (err) res.json(err);
     else res.json(data);
@@ -88,12 +88,11 @@ app.get("/api/users/:_id/logs", async (req, res) => {
   var userId = req.params._id;
   var { from, to, limit } = req.query;
   var filter = { userId };
-  var date_filter = {};
 
   if (from || to) {
-    if (from) date_filter["$gte"] = new Date(from);
-    if (to) date_filter["$lte"] = new Date(to);
-    filter.date = date_filter;
+    filter.date = {};
+    if (from) filter.date["$gte"] = new Date(from);
+    if (to) filter.date["$lte"] = new Date(to);
   }
 
   var user = await User.findById(userId);
